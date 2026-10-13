@@ -1,10 +1,12 @@
 import sqlite3
+from pathlib import Path
 
-DB_NAME = "bicycle_parking.db"
+DB_NAME = Path(__file__).resolve().parent / "bicycle_parking.db"
 
 
 def connect_to_database():
     return sqlite3.connect(DB_NAME)
+
 
 
 def register_user(user_id, name, email, accessibility_need=False):
@@ -25,15 +27,20 @@ def register_user(user_id, name, email, accessibility_need=False):
         ))
 
         connection.commit()
-        print("User registered successfully!")
+        return True, "User registered successfully!"
 
     except sqlite3.IntegrityError:
         connection.rollback()
-        print("Registration failed: user ID or email already exists.")
+        return False, "User ID or email already exists."
+
+    except sqlite3.Error as error:
+        connection.rollback()
+        return False, f"Database error: {error}"
 
     finally:
         cursor.close()
         connection.close()
+
 
 
 
@@ -104,7 +111,5 @@ def get_all_users():
 if __name__ == "__main__":
     for user in get_all_users():
         print(user)
-    print(check_user_exists("USER001"))
-    print(check_user_exists("USER999"))    
-
+    
 
