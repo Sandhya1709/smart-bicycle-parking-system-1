@@ -1,6 +1,7 @@
 import uuid
-from database import register_user
-
+from database import register_user, find_user
+from generate_qr import generate_qr
+from flask import send_file, abort
 
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash
 
@@ -22,6 +23,7 @@ SPACES = [
 def dashboard():
     free = sum(1 for s in SPACES if s["status"] == "FREE")
     return render_template("dashboard.html", spaces=SPACES, free=free, total=len(SPACES))
+
 
 
 
@@ -47,14 +49,24 @@ def register():
             accessibility_need
         )
 
+        if not success:
+            flash(message)
+            return redirect(url_for("main.register"))
+
         flash(message)
 
-        if success:
-            flash(f"Your User ID is: {user_id}")
-
-        return redirect(url_for("main.register"))
+        return render_template(
+            "qr.html",
+            user={
+                "user_id": user_id,
+                "name": name,
+                "email": email,
+                "accessibility_need": accessibility_need
+            }
+        )
 
     return render_template("register.html")
+
 
 
 
@@ -79,3 +91,35 @@ def api_scan():
         return jsonify({"error": "user_id is required"}), 400
     # TODO: check user, then check in (assign space) or check out
     return jsonify({"user_id": user_id, "message": "Scan received (logic not implemented yet)"}), 501
+
+
+@bp.route("/qr/<user_id>")
+def show_qr(user_id):
+    user = find_user(user_id)
+
+    if not user:
+        abort(404)
+
+    qr_image = generate_qr(user_id)
+
+    return send_file(
+        qr_image,
+        mimetype="image/png"
+    )
+
+
+@bp.route("/qr/<user_id>/download")
+def download_qr(user_id):
+    user = find_user(user_id)
+
+    if not user:
+        abort(404)
+
+    qr_image = generate_qr(user_id)
+
+    return send_file(
+        qr_image,
+        mimetype="image/png",
+        as_attachment=True,
+        download_name=f"{user_id}_QR.png"
+    )
